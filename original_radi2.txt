@@ -1,0 +1,566 @@
+#include<iostream>
+#include <sstream>
+#include <string>
+#include <fstream>
+#include <map>
+#include<bitset>
+#include<vector>
+
+using namespace std;
+unsigned long long int r1 = 0, r2 = 0, r3 = 0, r4 = 0;
+map<int, unsigned long long int> memoryLocations;
+using Map = map<int, unsigned long long int>;
+
+void printAllRegisters() {
+    cout << "r1-> " << bitset<64>(r1) << endl;
+    cout << "r2-> " << bitset<64>(r2) << endl;
+    cout << "r3-> " << bitset<64>(r3) << endl;
+    cout << "r4-> " << bitset<64>(r4) << endl << endl;
+}
+void printAllMemoryLocations() {
+    for (Map::const_iterator it = memoryLocations.begin();
+        it != memoryLocations.end(); ++it)
+        cout << "[ " << it->first << " ] = " << it->second << "\n";
+}
+void addValueToMemory(int memoryID, unsigned long long int value) {
+    Map::iterator it = memoryLocations.find(memoryID);
+    if (it != memoryLocations.end()) {
+        it->second = value;
+    }
+    else memoryLocations[memoryID] = value;
+
+}
+void printValuesFromMemory(int memoryID) {
+    Map::iterator it = memoryLocations.find(memoryID);
+    if (it != memoryLocations.end()) {
+        for (; it != memoryLocations.end(); ++it) {
+            cout << (char)it->second;//zasto char
+        }
+    }
+    else
+        cout << "Ne postoji vrijednost za ovaj ID";
+
+}
+void printEverything(vector<string> words) {
+    cout << "Linija koja se obradjuje" << endl;
+    for (string s : words) {
+        cout << " " << s;
+    }
+    cout << endl;
+    printAllRegisters();
+    printAllMemoryLocations();
+}
+unsigned long long int getValueFromMemor(int memoryID) {
+    Map::iterator it = memoryLocations.find(memoryID);
+    if (it != memoryLocations.end()) {
+        return it->second;
+    }
+    else
+        return -1;
+}
+int checkIfNumber(string s) {
+    bool isNum = true;
+    for (char c : s)
+    {
+        if (!isdigit(c)) {
+            isNum = false;
+            break;
+        }
+    }
+    if (isNum)
+        return atoi(s.c_str());
+    else
+        return -1;
+
+}
+//vraca pokazivac na registar
+unsigned long long* checkIfStringIsRegister(string str) {
+
+    if (str == "r1")
+        return &r1;
+    else if (str == "r2")
+        return &r2;
+    else if (str == "r3")
+        return &r3;
+    else if (str == "r4")
+        return &r4;
+
+    return nullptr;
+}
+unsigned long long checkIfStringIsRegisterReturnValue(string str) {
+
+    if (str == "r1")
+        return r1;
+    else if (str == "r2")
+        return r2;
+    else if (str == "r3")
+        return r3;
+    else if (str == "r4")
+        return r4;
+
+    return -1;
+}
+int checkIfStringIsMemoryLocation(string str) { //pokusati naci bolji nacin
+
+    if (str[0] == '[' && str[str.length() - 1] == ']') {
+        string tempValue = str.substr(1, str.length() - 2);
+        int number = checkIfStringIsRegisterReturnValue(tempValue);
+
+        if (number != -1) {
+            return number;
+        }
+        else {
+            //ako nije registar mozda je konstanta upisana za memorijsku lokaciju
+            return checkIfNumber(tempValue);
+        }
+    }
+    return -1;
+}
+vector<string> findWordsFromString(string str) {
+
+    // word variable to store word
+    vector<string> words;
+    string word;
+
+    // making a string stream
+    stringstream iss(str);
+
+    // Read and print each word.
+    while (iss >> word) {
+        // cout << word << endl;
+
+        words.push_back(word);
+    }
+    return words;
+}
+
+
+
+int main() {
+    fstream file;
+    vector<string>words;
+    string line = "";
+    file.open("test.txt");
+    unsigned long long* currentRegister;
+    unsigned long long secondValue;
+    /*   if (file.is_open()) {
+           cout << "Fajl otvoren";
+       }
+       else
+           cout << "Greska pri otvaranju fajla";*/
+    string command = "";
+    int continueTrg = 0;
+    bool debug = false;
+    bool jmp = false;
+    int eof = 0;//doslo je do kraja fajla jer labela nije ispravna ili ne postoji
+    int minArg = 2;
+    string jumpLabel;
+    while (getline(file, line))
+    {
+        command = "";
+        minArg = 2;
+        if (jmp) {
+
+            file.seekg(0, file.beg);
+
+            line = "";
+            eof = 0;
+            while (line != jumpLabel && eof == 0)
+            {
+                getline(file, line);
+
+                if (file.eof() != true)
+                {
+                    remove_if(line.begin(), line.end(), isspace);
+                    if (line == jumpLabel) {
+                        //ako smo pronasli taj dio
+                        //procitaj sledecu komandu i tjt.
+
+                        getline(file, line);
+                        jmp = false;
+                        break;
+                    }
+                }
+                else
+                {
+                    cout << "Greska! Nije pronadjena zadata labela!!" << endl;
+                    eof = 1;
+                }
+            }
+
+        }
+        if (!eof) {
+
+            //dodati osigurac za 0 ili jednu rijec
+            int index = 0;
+            words = findWordsFromString(line);
+            if (words.size() == 0) {
+                continue;
+            }
+            if (words.size() < 2) { //provjera da li je labela
+                getline(file, line);
+                words = findWordsFromString(line);
+                if (words.size() < 2) {// linija ispod labele mora biti komanda
+                    cout << "Neispravan unos, linija ispod tabele mora biti nova komanda!!!" << endl;
+                }
+            }
+            if (words[index] == "*") {
+            debug = true;
+            index++;
+            minArg++;// ukoliko je upaljen debug mod, min broj argumenata je 3 ili 4;
+            continueTrg = 0;
+            }
+            if (debug && (!continueTrg)) {// debug opcije
+                /*  cout << "Linija koja se obradjuje" << endl;
+                  for (string s : words) {
+                      cout << " " << s;
+
+                  }
+                  cout << endl;*/
+                cout << "Trenutno stanje u memoriji" << endl;
+                printEverything(words);
+                cout << "Unesite komandu za nastavak izvrsavanja" << endl;
+                while (command != "continue" && command != "next" && command != "step" && command != "quit") {
+                    // cout << "Pogresna komanda!" << endl;
+                    cout << "Podrzane komande su continue, next, step ili quit(za izlazak iz programa)" << endl;
+                    getline(cin, command);
+                    remove_if(command.begin(), command.end(), isspace);
+                }
+                if (command == "continue")
+                {
+                    //  printEverything(words);
+                    continueTrg = 1;
+                }
+               /* else if (command == "next" || command == "step") {
+                    continue;
+                }*/
+                else if (command == "quit") {
+                    eof = 1;
+                    break;
+
+                }
+            } 
+            if (words.size() == minArg || words.size() == (minArg+1)) {
+                
+                //printEverything(words);
+              
+                if (words[index] == "ADD")
+                {
+                    currentRegister = checkIfStringIsRegister(words[index + 1]);//NIJE ISPITANO DA LI JE DRUGI REGISTAR BROJ 
+                    if (currentRegister != nullptr) {
+                        secondValue = checkIfStringIsRegisterReturnValue(words[index + 2]);
+                        if (secondValue != -1)
+                            *currentRegister = (*currentRegister) + secondValue;
+                        else {
+                            secondValue = checkIfNumber(words[index + 2]);
+                            if (secondValue != -1)
+                                *currentRegister = (*currentRegister) + secondValue;
+                            else
+                                cout << "Drugi argument mora biti ili registar ili konstanta" << endl;
+                        }
+
+                    }
+                    else
+                        cout << "Neispravan unos, prvi argument mora biti registar" << endl;
+                }
+                else if (words[index] == "SUB")
+                {
+                    currentRegister = checkIfStringIsRegister(words[index + 1]);//NIJE ISPITANO DA LI JE DRUGI REGISTAR BROJ 
+                    if (currentRegister != nullptr) {
+                        secondValue = checkIfStringIsRegisterReturnValue(words[index + 2]);
+                        if (secondValue != -1)
+                            *currentRegister = (*currentRegister) - secondValue;
+                        else {
+                            secondValue = checkIfNumber(words[index + 2]);
+                            if (secondValue != -1)
+                                *currentRegister = (*currentRegister) - secondValue;
+                            else
+                                cout << "Drugi argument mora biti ili registar ili konstanta" << endl;
+                        }
+
+                    }
+                    else
+                        cout << "Neispravan unos, prvi argument mora biti registar" << endl;
+                }
+                else if (words[index] == "OR")
+                {
+                    currentRegister = checkIfStringIsRegister(words[index + 1]);//NIJE ISPITANO DA LI JE DRUGI REGISTAR BROJ 
+                    if (currentRegister != nullptr) {
+                        secondValue = checkIfStringIsRegisterReturnValue(words[index + 2]);
+                        if (secondValue != -1)
+                            *currentRegister = (*currentRegister) | secondValue;
+                        else {
+                            secondValue = checkIfNumber(words[index + 2]);
+                            if (secondValue != -1)
+                                *currentRegister = (*currentRegister) | secondValue;
+                            else
+                                cout << "Drugi argument mora biti ili registar ili konstanta" << endl;
+                        }
+
+                    }
+                    else
+                        cout << "Neispravan unos, prvi argument mora biti registar" << endl;
+                }
+                else if (words[index] == "AND")
+                {
+                    currentRegister = checkIfStringIsRegister(words[index + 1]);//NIJE ISPITANO DA LI JE DRUGI REGISTAR BROJ 
+                    if (currentRegister != nullptr) {
+                        secondValue = checkIfStringIsRegisterReturnValue(words[index + 2]);
+                        if (secondValue != -1)
+                            *currentRegister = (*currentRegister) && secondValue;
+                        else {
+                            secondValue = checkIfNumber(words[index + 2]);
+                            if (secondValue != -1)
+                                *currentRegister = (*currentRegister) && secondValue;
+                            else
+                                cout << "Drugi argument mora biti ili registar ili konstanta" << endl;
+                        }
+
+                    }
+                    else
+                        cout << "Neispravan unos, prvi argument mora biti registar" << endl;
+                }
+                else if (words[index] == "NOT")
+                {
+                    currentRegister = checkIfStringIsRegister(words[index + 1]);//NIJE ISPITANO DA LI JE DRUGI REGISTAR BROJ 
+                    if (currentRegister != nullptr)
+                        *currentRegister = ~(*currentRegister);
+                    else
+                        cout << "Neispravan unos, prvi argument mora biti registar" << endl;
+                }
+                else if (words[index] == "MOV") {// implenetirati sutra
+                     //registar registar
+                    //registar konstanta
+                    //registar memorijska lokacija
+                    //memorijsak lokacija registar
+                    //memorijska lokacija memorijska lokacija
+                    //memorijska lokaija konstanta
+                    currentRegister = checkIfStringIsRegister(words[index + 1]);
+                    if (currentRegister == nullptr) {//prvi nije registar moze biti
+                                                     //  samo mem lok
+                        int pomFirstValue = checkIfStringIsMemoryLocation(words[index + 1]);
+                        if (pomFirstValue != -1) {//garantuje da je prva vrijednost memorijska lokacija
+                            int secondValue = checkIfStringIsRegisterReturnValue(words[index + 2]);
+                            if (secondValue == -1) {//nije registar, moze biti ili mem lokacija ili konstanta
+                                secondValue = checkIfStringIsMemoryLocation(words[index + 2]);
+                                if (secondValue == -1) {// nije mem lokacija, moze biti samo konstanta
+                                    secondValue = checkIfNumber(words[index + 2]);
+                                    if (secondValue == -1)//nije ni jedno od 3 moguce opcije
+                                        cout << "Drugi argument mora biti registar,konstanta ili memorijska lokacija";
+                                    else // jeste konstanta
+                                        addValueToMemory(pomFirstValue, secondValue);
+
+                                }
+                                else // jeste memorijska lokacija
+                                    secondValue = getValueFromMemor(secondValue);
+                                if (secondValue != -1) {
+                                    addValueToMemory(pomFirstValue, secondValue);
+                                }
+                                else
+                                    cout << "Nema vrijednosti za ovu lokaciju";
+                            }
+                            else //druga vrijednost jeste registar
+                                addValueToMemory(pomFirstValue, secondValue);
+
+                        }
+                        else {//prva vrijednost nije ni registar ni mem lokacija
+
+                            cout << "Prva vrijednost mora biti ili registar ili memorijska lokacija";
+
+
+                        }
+                    }
+                    else {// prva vrijednost je registar
+                        int secondValue = checkIfStringIsRegisterReturnValue(words[index + 2]);
+                        if (secondValue == -1) {//nije registar, moze biti ili mem lokacija ili konstanta
+                            secondValue = checkIfStringIsMemoryLocation(words[index + 2]);
+                            if (secondValue == -1) {// nije mem lokacija, moze biti samo konstanta
+                                secondValue = checkIfNumber(words[index + 2]);
+                                if (secondValue == -1)//nije ni jedno od 3 moguce opcije
+                                    cout << "Drugi argument mora biti registar,konstanta ili memorijska lokacija";
+                                else // jeste konstanta
+                                    *currentRegister = secondValue;
+
+                            }
+                            else { // jeste memorijska lokacija
+                                secondValue = getValueFromMemor(secondValue);
+                                if (secondValue != -1) {
+                                    *currentRegister = secondValue;
+                                }
+                                else
+                                    cout << "Nema vrijednosti za ovu lokaciju";
+                            }
+                        }
+                        else //druga vrijednost jeste registar
+                            *currentRegister = secondValue;
+                    }
+
+                }
+                else if (words[index] == "SCAN") {
+
+                    int memoryAddress = checkIfStringIsMemoryLocation(words[index + 1]);
+                    if (memoryAddress != -1) {
+                        cout << "Unesite string";
+                        string inputString;//mijenjati naziv
+                        getline(cin, inputString);
+                        for (int i = 0; i < inputString.size(); i++) {
+                            cout << "Znak->" << inputString[i] << endl;
+                            addValueToMemory(memoryAddress, int(inputString[i]));
+
+                            memoryAddress++;
+                        }
+                    }
+                    else {
+                        cout << "Neispravan unos";
+                    }
+                }
+                else if (words[index] == "PRINT") {
+                    int memoryAddress = checkIfStringIsMemoryLocation(words[index + 1]);
+                    if (memoryAddress != -1) {
+                        cout << "ISPIS-> ";
+                        printValuesFromMemory(memoryAddress);
+
+                    }
+                    else {
+                        cout << "NESIPRAVAN UNOS ZA komandu SCAN, jedini argument je memorijska adresa i to u obliku [konstanta] ili [registar]" << endl;
+                    }
+                }
+                if (words[index] == "JMP") {
+                    jumpLabel = words[index + 1];
+                    jumpLabel += ":";
+                    jmp = true;
+                }
+                if (words[index] == "CMP") {
+                    unsigned long long firstValueCmp = checkIfStringIsRegisterReturnValue(words[index + 1]);
+                    if (firstValueCmp == -1) {
+                        firstValueCmp = checkIfNumber(words[index + 1]);
+                        if (firstValueCmp == -1) {
+                            cout << "Prvi argument poslije cmp mora biti registar ili broj";
+                        }
+                    }
+                    unsigned long long secondValueCmp = checkIfStringIsRegisterReturnValue(words[index + 2]);// njemu pise 1
+                    if (secondValueCmp == -1) {
+                        secondValueCmp = checkIfNumber(words[index + 2]);
+                        if (secondValueCmp == -1) {
+                            cout << "Drugi argument poslije cmp mora biti registar ili broj";
+                        }
+                    }
+                    getline(file, line);
+                    words = findWordsFromString(line);
+                    if (words[index] == "JE" && firstValueCmp == secondValueCmp) {
+                        jumpLabel = words[index + 1];
+                        jumpLabel += ":";
+                        jmp = true;
+                    }
+                    else if (words[index] == "JNE" && firstValueCmp != secondValueCmp) {
+
+                        jumpLabel = words[index + 1];
+                        jumpLabel += ":";
+                        jmp = true;
+                    }
+                    else if (words[index] == "JGE" && firstValueCmp >= secondValueCmp) {
+
+                        jumpLabel = words[index + 1];
+                        jumpLabel += ":";
+                        jmp = true;
+                    }
+                    else if (words[index] == "JL" && firstValueCmp < secondValueCmp) {
+
+                        jumpLabel = words[index + 1];
+                        jumpLabel += ":";
+                        jmp = true;
+                    }
+                    else {
+                        cout << "Nije nista ispunjeno..." << endl;
+                        //procitaj sledecu komandu 
+                        //getline(infile, line);
+                    }
+
+
+
+
+
+
+                }
+            }
+            else {
+                cout << "Ako se ne radi o labeli, broj argumenata mora biti 2 ili 3" << endl;
+                break;
+            }
+       
+            //if (debug&&(!continueTrg)) {
+            //  /*  cout << "Linija koja se obradjuje" << endl;
+            //    for (string s : words) {
+            //        cout << " " << s;
+            //        
+            //    }
+            //    cout << endl;*/
+            //    cout << "Trenutno stanje u memoriji"<<endl;
+            //    printEverything(words);
+            //   cout << "Unesite komandu za nastavak izvrsavanja"<<endl; 
+            //    while (command != "continue" && command != "next" && command != "step" && command != "quit") {
+            //       // cout << "Pogresna komanda!" << endl;
+            //        cout << "Podrzane komande su continue, next, step ili quit(za izlazak iz programa)" << endl;
+            //        getline(cin, command);
+            //        remove_if(command.begin(), command.end(), isspace);
+            //    }
+            //    if (command == "continue")
+            //    {
+            //      //  printEverything(words);
+            //        continueTrg=1;
+            //    }
+            //    else if (command == "next" || command == "step") {
+            //        continue;
+            //    }
+            //    else if (command == "quit") {
+            //       eof = 1; 
+            //       break;
+            //        
+            //    }
+            //}
+
+        }
+        else {
+            break;
+        }
+    }
+
+    cout << "FINALNO STANJE" << endl;
+    printAllRegisters();
+
+
+
+
+
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

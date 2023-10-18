@@ -1,0 +1,15 @@
+MOV r1 5
+MOV r2 r1
+SCAN [5]
+ADD r3 15
+* MOV r1 [5]
+PRINT [5]
+ADD r4 r3
+* CMP r1 r2
+JGE next
+MOV [r2] 54
+MOV [1]  432
+
+
+next:
+MOV r1 r2
